@@ -1,0 +1,14 @@
+{
+  "syslog": {
+    "enabled": false
+  },
+  "log_level": "info",
+  "consul": "localhost:8500",
+  "template": [
+    {
+      "source": "/envoy-fault.conf.tpl",
+      "destination": "/envoy-fault.conf",
+      "command": "/write-override-conf.sh"
+    }
+  ]
+}

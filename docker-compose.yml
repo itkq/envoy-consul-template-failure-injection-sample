@@ -1,0 +1,68 @@
+version: '3'
+
+services:
+  consul-agent-1: &consul-agent
+    image: consul:latest
+    networks:
+      - consul
+    command: "agent -retry-join consul-server-bootstrap -client 0.0.0.0"
+
+  consul-server-1: &consul-server
+    <<: *consul-agent
+    command: "agent -server -retry-join consul-server-bootstrap -client 0.0.0.0"
+
+  consul-server-2:
+    <<: *consul-server
+
+  consul-server-3:
+    <<: *consul-server
+
+  consul-server-bootstrap:
+    <<: *consul-agent
+    ports:
+      - "8400:8400"
+      - "8500:8500"
+      - "8600:8600"
+      - "8600:8600/udp"
+    command: "agent -server -bootstrap-expect 3 -ui -client 0.0.0.0"
+
+  fit:
+    build:
+      context: ./fit
+    links:
+      - consul-agent-1
+    volumes:
+      - /tmp/envoy_runtime:/envoy_runtime
+    command: "consul-template -config=consul-config.json -consul-addr=consul-agent-1:8500"
+    environment:
+      APP_ID: front
+    networks:
+      - consul
+
+  front-envoy:
+    build:
+      context: ./front-envoy
+    links:
+      - backend
+    ports:
+      - "9901:9901"
+    volumes:
+      - /tmp/envoy_runtime:/srv/runtime
+
+  front:
+    build:
+      context: ./front
+    environment:
+      BACKEND_HOST: 'backend'
+      BACKEND_URL: 'http://envoy/api'
+    links:
+      - "front-envoy:envoy"
+    ports:
+      - "3000:3000"
+
+  backend:
+    build:
+      context: ./backend
+
+networks:
+  consul:
